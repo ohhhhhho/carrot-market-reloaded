@@ -6,7 +6,19 @@ import bcrypt from 'bcrypt'
 import { redirect } from 'next/navigation'
 import getSession from '@/lib/session'
 
-const checkUniqueUsername = async(username:string) => {
+const formSchema = z.object({
+    username:z.string({
+        invalid_type_error:"user name must be a string",
+        required_error:"Where is my username?"
+    }).min(5,"Way too short").max(10,"That is too long")
+    .refine(username => !username.includes('hi'),"No hi allowed"),
+    email:z.string().email(),
+    password:z.string().min(PASSWORD_MIN_LENGTH).regex(PASSWORD_REGEX,PASSWORD_REGEX_ERROR),
+    passwordConfirm:z.string().min(PASSWORD_MIN_LENGTH)
+}).refine(({password,passwordConfirm}) => password === passwordConfirm,{
+    message:"Both passwords should be the same",
+    path:["passwordConfirm"]
+}).superRefine(async ({username},ctx) => {
     const user = await db.user.findUnique({
         where:{
             username
@@ -15,36 +27,39 @@ const checkUniqueUsername = async(username:string) => {
             id:true
         }
     })
-    // if(user){
-    //     return false
-    // }else{
-    //     return true
-    // }
-    return !Boolean(user) //위의 코드와 작동 똑같음
-}
-
-const checkUniqueEmail = async (email:string) => {
+    if(user){
+        //zod에서 유효성 검사 후 에러메시지 쓸때 만드는 코드
+        ctx.addIssue({
+            code:'custom',
+            message:'This username is already taken',
+            path:['username'],
+            //위의 유효성 검사가 완료 되기전까지 다른것들의 유효성 검사를 진행하지 않는다
+            //superRefine을 다른 refine보다 앞에 놔야 검사 진행하지 않음
+            fatal:true
+        })
+        //반환값은 사용되지는 않지만 타입을 위해서 반환한다
+        return z.NEVER
+    }
+}).superRefine(async ({email},ctx) => {
     const user = await db.user.findUnique({
-        where:{email},
-        select:{id:true}
+        where:{
+            email
+        },
+        select:{
+            id:true
+        }
     })
-    return !Boolean(user)
-}
-
-const formSchema = z.object({
-    username:z.string({
-        invalid_type_error:"user name must be a string",
-        required_error:"Where is my username?"
-    }).min(5,"Way too short").max(10,"That is too long")
-    .refine(username => !username.includes('hi'),"No hi allowed")
-    .refine(checkUniqueUsername,'This Username is already taken'),
-    email:z.string().email().refine(checkUniqueEmail,"This Email is already taken"),
-    password:z.string().min(PASSWORD_MIN_LENGTH).regex(PASSWORD_REGEX,PASSWORD_REGEX_ERROR),
-    passwordConfirm:z.string().min(PASSWORD_MIN_LENGTH)
-}).refine(({password,passwordConfirm}) => password === passwordConfirm,{
-    message:"Both passwords should be the same",
-    path:["passwordConfirm"]
+    if(user){
+        ctx.addIssue({
+            code:'custom',
+            message:'This email is already taken',
+            path:['email'],
+            fatal:true
+        })
+        return z.NEVER
+    }
 })
+
 
 export async function createAccount(prev:any,data:FormData) {
     const formData = {
