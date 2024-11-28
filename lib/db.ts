@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
-const db = new PrismaClient()
+export const db = new PrismaClient()
 
 async function test() {
     const token = await db.sMStoken.findUnique({
