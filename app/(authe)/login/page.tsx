@@ -1,6 +1,6 @@
 "use client"
 import Input from "@/components/input";
-import Button from "../../components/button";
+import Button from "@/components/button";
 import SocialLogin from "@/components/social-login";
 import { login } from "./action";
 import { useActionState } from "react";
