@@ -48,7 +48,7 @@ export default async function ProductDetail({params}:{params:{id:string}}){
     const isOwner = await getOwner(product.userId)
     const DeleteProduct = async () => {
         "use server"
-        const product = await db.product.delete({
+        await db.product.delete({
             where:{
                 id
             }
